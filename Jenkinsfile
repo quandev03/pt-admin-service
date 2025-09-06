@@ -1,14 +1,11 @@
 pipeline {
   agent any
+  options { timestamps() }
 
   environment {
-    // đặt tên stack cho dễ lọc container/network
     COMPOSE_PROJECT_NAME = 'pt-admin'
-    // dùng compose v1 ổn định từ official image
     COMPOSE_IMG = 'docker/compose:1.29.2'
   }
-
-  options { timestamps() }
 
   stages {
     stage('Checkout') {
@@ -17,10 +14,23 @@ pipeline {
       }
     }
 
+    stage('Prepare .env') {
+      steps {
+        withCredentials([string(credentialsId: 'pt-admin-env', variable: 'ENV_CONTENT')]) {
+          sh '''
+            set -e
+            # tạo file .env trong workspace từ Secret text (giữ nguyên xuống dòng)
+            printf "%b" "$ENV_CONTENT" > .env
+            echo "[i] Wrote $(wc -l < .env) lines to .env"
+          '''
+        }
+      }
+    }
+
     stage('Compose Version') {
       steps {
         sh '''
-          echo ">>> Using containerized ${COMPOSE_IMG}"
+          echo ">>> Using ${COMPOSE_IMG}"
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
@@ -36,11 +46,9 @@ pipeline {
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
-            --env COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+            -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
             ${COMPOSE_IMG} \
-            -f ${WORKSPACE}/docker-compose.yml \
-            --env-file ${WORKSPACE}/.env \
-            build
+            -f docker-compose.yml --env-file .env build
         '''
       }
     }
@@ -52,11 +60,9 @@ pipeline {
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
-            --env COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+            -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
             ${COMPOSE_IMG} \
-            -f ${WORKSPACE}/docker-compose.yml \
-            --env-file ${WORKSPACE}/.env \
-            up -d --force-recreate
+            -f docker-compose.yml --env-file .env up -d --force-recreate
         '''
       }
     }
@@ -65,7 +71,6 @@ pipeline {
       steps {
         sh '''
           echo "=== Health check ==="
-          # cho app có thời gian khởi động
           sleep 10
           curl -sf http://localhost:8080/actuator/health | grep -qi '"status":"UP"'
         '''
@@ -74,21 +79,21 @@ pipeline {
   }
 
   post {
-    success {
-      echo '✅ Deploy thành công bằng docker-compose (containerized)'
-    }
+    success { echo '✅ Deploy OK với docker-compose' }
     failure {
-      echo '❌ Deploy thất bại — in logs'
+      echo '❌ Deploy fail — in logs'
       sh '''
         docker run --rm \
           -v /var/run/docker.sock:/var/run/docker.sock \
           -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
-          --env COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+          -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
           ${COMPOSE_IMG} \
-          -f ${WORKSPACE}/docker-compose.yml \
-          --env-file ${WORKSPACE}/.env \
-          logs --no-color || true
+          -f docker-compose.yml --env-file .env logs --no-color || true
       '''
+    }
+    always {
+      // dọn dẹp file .env sinh ra (tuỳ chọn)
+      sh 'shred -u .env || true'
     }
   }
 }
