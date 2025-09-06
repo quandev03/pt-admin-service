@@ -16,6 +16,7 @@ pipeline {
             passwordVariable: 'HPASS'
           )]) {
             sh '''
+              #!/usr/bin/env bash
               set -euo pipefail
 
               echo ">> Using Harbor user: ${HUSER}"   # username KHÔNG bị mask nên thấy được
