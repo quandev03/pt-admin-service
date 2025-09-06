@@ -1,21 +1,35 @@
 pipeline {
-    agent any
+  agent any
+  options { timestamps() }
 
-    environment {
-        COMPOSE_PROJECT_NAME = "pt-admin"
+  environment {
+    COMPOSE_PROJECT_NAME = 'pt-admin'
+    // Dùng Docker Compose qua container
+    COMPOSE = 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $WORKSPACE:$WORKSPACE -w $WORKSPACE docker/compose:2.29.7'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git branch: 'develop', url: 'https://github.com/quandev03/pt-admin-service.git'
+      }
+    }
+
+    stage('Compose Version') {
+      steps {
+        sh '''#!/bin/sh
+          set -e
+          echo "=== Compose version ==="
+          $COMPOSE version
+        '''
+      }
     }
 
     stage('Docker Compose Build') {
       steps {
-        sh '''
+        sh '''#!/bin/sh
           set -e
-          COMPOSE="docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $PWD:$PWD -w $PWD \
-            docker/compose:2.29.7"
-
           echo "=== Build bằng docker-compose (container) ==="
-          $COMPOSE version
           $COMPOSE build
         '''
       }
@@ -23,74 +37,36 @@ pipeline {
 
     stage('Docker Compose Up') {
       steps {
-        sh '''
+        sh '''#!/bin/sh
           set -e
-          COMPOSE="docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $PWD:$PWD -w $PWD \
-            docker/compose:2.29.7"
-
           echo "=== Up -d ==="
           $COMPOSE up -d
         '''
       }
     }
 
-    post {
-      failure {
-        sh '''
-          COMPOSE="docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $PWD:$PWD -w $PWD \
-            docker/compose:2.29.7"
-          $COMPOSE logs app || true
+    stage('Health Check') {
+      steps {
+        sh '''#!/bin/sh
+          set -e
+          echo "=== Kiểm tra app ==="
+          # chỉnh URL nếu service/port khác
+          sleep 10
+          curl -fsS http://localhost:8080/actuator/health > /dev/null
         '''
       }
     }
+  }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'develop', url: 'https://github.com/quandev03/pt-admin-service.git'
-            }
-        }
-
-        stage('Docker Compose Build') {
-            steps {
-                sh '''
-                  echo "=== Build bằng docker-compose ==="
-                  docker compose build
-                '''
-            }
-        }
-
-        stage('Docker Compose Up') {
-            steps {
-                sh '''
-                  echo "=== Run container với docker-compose ==="
-                  docker compose up -d
-                '''
-            }
-        }
-
-        stage('Health Check') {
-            steps {
-                sh '''
-                  echo "=== Kiểm tra app ==="
-                  sleep 10
-                  curl -f http://localhost:8080/actuator/health || exit 1
-                '''
-            }
-        }
+  post {
+    success {
+      echo '✅ Deploy thành công bằng Docker Compose (container)'
     }
-
-    post {
-        success {
-            echo "✅ Deploy thành công bằng Docker Compose"
-        }
-        failure {
-            echo "❌ Deploy thất bại, xem log Jenkins"
-            sh "docker compose logs app || true"
-        }
+    failure {
+      echo '❌ Deploy thất bại, in logs docker-compose'
+      sh '''#!/bin/sh
+        $COMPOSE logs --no-color app || true
+      '''
     }
+  }
 }
