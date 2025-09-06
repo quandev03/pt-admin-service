@@ -3,8 +3,8 @@ pipeline {
   options { timestamps() }
 
   environment {
+    COMPOSE_IMAGE       = 'docker/compose:1.29.2'   // <-- thêm biến này
     COMPOSE_PROJECT_NAME = 'pt-admin'
-    COMPOSE_IMG = 'docker/compose:1.29.2'
   }
 
   stages {
@@ -16,51 +16,36 @@ pipeline {
 
     stage('Prepare .env') {
       steps {
-        script {
-          env.ENV_FROM_CRED = 'false'
-          if (fileExists('.env')) {
-            echo "[i] Found .env in repo -> dùng file này."
-          } else {
-            withCredentials([string(credentialsId: 'pt-admin-env', variable: 'ENV_CONTENT')]) {
-              writeFile file: '.env', text: ENV_CONTENT
-              env.ENV_FROM_CRED = 'true'
-              echo "[i] Viết .env từ Jenkins credentials."
-            }
-          }
-          sh '''
-            echo "== LS WORKSPACE =="
-            ls -la
-            echo "== HEAD .env (ẩn nội dung) =="
-            wc -c .env || true
-          '''
-        }
+        sh '''
+          echo "== LS WORKSPACE =="
+          ls -la
+          # Nếu .env có CRLF thì chuẩn hóa sang LF (không bắt buộc)
+          [ -f .env ] && sed -i 's/\r$//' .env || true
+        '''
       }
     }
 
-
     stage('Compose Version') {
       steps {
-        sh '''
-          echo ">>> Using ${COMPOSE_IMG}"
+        sh """
+          echo '>>> Using ${COMPOSE_IMAGE}'
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
-            ${COMPOSE_IMG} version
-        '''
+            ${COMPOSE_IMAGE} version
+        """
       }
     }
 
     stage('Docker Compose Build') {
       steps {
         sh """
-          echo '=== Build với docker-compose (v1) ==='
+          echo '=== Build với docker-compose ==='
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
             -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
-            ${COMPOSE_IMAGE} \
-            -f docker-compose.yml \
-            build
+            ${COMPOSE_IMAGE} -f docker-compose.yml build
         """
       }
     }
@@ -73,38 +58,29 @@ pipeline {
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
             -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
-            ${COMPOSE_IMAGE} \
-            -f docker-compose.yml \
-            up -d
+            ${COMPOSE_IMAGE} -f docker-compose.yml up -d
         """
       }
     }
 
-
     stage('Health Check') {
       steps {
-        sh '''
-          echo "=== Health check ==="
-          sleep 10
-          curl -sf http://localhost:8080/actuator/health | grep -qi '"status":"UP"'
-        '''
+        sh 'sleep 10; curl -f http://localhost:8080/actuator/health'
       }
     }
   }
 
-
-post {
-  failure {
-    echo '❌ Deploy fail — in logs'
-    sh """
-      docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
-        -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
-        ${COMPOSE_IMAGE} \
-        -f docker-compose.yml \
-        logs --no-color || true
-    """
+  post {
+    success { echo '✅ Deploy OK' }
+    failure {
+      echo '❌ Deploy fail — in logs'
+      sh """
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
+          -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+          ${COMPOSE_IMAGE} -f docker-compose.yml logs --no-color || true
+      """
+    }
   }
-}
 }
