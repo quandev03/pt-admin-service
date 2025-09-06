@@ -16,13 +16,32 @@ pipeline {
   }
 
   stages {
-    stage('Build & Push Docker Image') {
+    stage('Docker Build & Push (BuildKit + secret)') {
       steps {
-        sh '''
-          echo "=== Build Docker image ==="
-          docker build -t ${IMAGE}:${IMAGE_TAG} .
-          docker push ${IMAGE}:${IMAGE_TAG}
-        '''
+        withCredentials([
+          usernamePassword(credentialsId: 'harbor-creds', usernameVariable: 'HUSER', passwordVariable: 'HPASS'),
+          file(credentialsId: 'maven-settings-xml', variable: 'MVN_SETTINGS')
+        ]) {
+          sh '''
+            set -e
+
+            # login registry (để pull base private & push)
+            echo "$HPASS" | docker login harbor.vissoft.vn -u "$HUSER" --password-stdin
+
+            # Bật BuildKit & chuẩn bị builder
+            export DOCKER_BUILDKIT=1
+            docker buildx create --name jxbuilder --use || docker buildx use jxbuilder
+            docker buildx inspect --bootstrap
+
+            # Build & PUSH (truyền settings.xml qua secret, KHÔNG ghi vào image)
+            docker buildx build \
+              --secret id=mvnsettings,src=${MVN_SETTINGS} \
+              -t harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER} \
+              -t harbor.vissoft.vn/vnsky/hvn-admin-service:latest \
+              --push \
+              .
+          '''
+        }
       }
     }
 
