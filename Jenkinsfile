@@ -8,21 +8,27 @@ pipeline {
             }
         }
 
-        stage('Docker Build & Push') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'harbor-creds', usernameVariable: 'HUSER', passwordVariable: 'HPASS')]) {
-                    sh '''
-                        set -e
-                        docker logout harbor.vissoft.vn || true
+      stage('Docker Build & Push') {
+        steps {
+          withCredentials([usernamePassword(
+            credentialsId: 'harbor-creds',
+            usernameVariable: 'HUSER',
+            passwordVariable: 'HPASS'
+          )]) {
+            sh '''
+              set -euo pipefail
 
-                        echo "$HPASS" | docker login harbor.vissoft.vn -u "$HUSER" --password-stdin
+              echo ">> Using Harbor user: ${HUSER}"   # username KHÔNG bị mask nên thấy được
+              docker logout harbor.vissoft.vn || true
+              echo "$HPASS" | docker login harbor.vissoft.vn -u "$HUSER" --password-stdin
 
-                        docker build -t harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER} .
-                        docker push harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER}
-                    '''
-                }
-            }
+              # ví dụ build/push
+              DOCKER_BUILDKIT=1 docker build -t harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER} .
+              docker push harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER}
+            '''
+          }
         }
+      }
 
         stage('Deploy') {
             steps {
