@@ -1,0 +1,33 @@
+[
+  {
+    "id": "01J85E0PYJPX85TWZJP8AACF34",
+    "status": 1,
+    "code": "ADMIN4",
+    "name": "Chu Khanh Linh 1",
+    "roleIds": [
+      "01J83ZM3AP9T0G20SC5SZRE10R",
+      "01JDPC7XEPWQ4PM0N9Z51AB0XN",
+      "01JD3V7CT307320DFHTEXMR4P6"
+    ],
+    "userIds": [
+      "01JDR8EZH9YWKWBZ349Z2G51AW",
+      "01J7B2JWHYEN6W9Q64DGQPA7J3",
+      "01J7YYZ44N3GV32NN1NW99VC5C",
+      "01JBZNA1S2WEDFAPCEKW1VGVK3",
+      "01J9XD3GCQEHK6DV74FTBN33FM"
+    ]
+  },
+  {
+    "id": "01JH02PW4FB4N3GFBXTDF20FR4",
+    "status": 0,
+    "code": "THANHVT1",
+    "name": "Thành téc 3",
+    "roleIds": [
+      "01JAPE1GA2835EKQV6CVTKT1Z2",
+      "01JE8CJ1YM6HS987YVS28QTGN1"
+    ],
+    "userIds": [
+      "01J86QMW0BH390A51K8H698YR4"
+    ]
+  }
+]

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <title></title>
+    <meta charset="UTF-8">
+</head>
+
+<body>
+<div class="body">
+    <div class="body-1">
+        <h4><i>Xin chào,</i></h4>
+
+        <p th:if="${T(vn.vnsky.bcss.admin.constant.AuthConstants).VNSKY_CLIENT_ALIAS.equals(content)}">
+            Mail này cung cấp tài khoản đăng nhập Hệ thống kinh doanh và dịch vụ khách hàng:
+        </p>
+        <p th:unless="${T(vn.vnsky.bcss.admin.constant.AuthConstants).VNSKY_CLIENT_ALIAS.equals(content)}">
+            Mail này cung cấp tài khoản đăng nhập Website đối tác VNSKY:
+        </p>
+        <div style="padding-left: 30px">
+
+            <p th:unless="${T(vn.vnsky.bcss.admin.constant.AuthConstants).VNSKY_CLIENT_ALIAS.equals(content)}">
+                <b>Mã định danh đối tác:</b> <span style="text-decoration: none; color:black" th:text="${content}"></span>
+            </p>
+
+            <p><b>Tên đăng nhập:</b> <span style="text-decoration: none; color:black" th:text="${username}"></span></p>
+
+            <p><b>Mật khẩu:</b> <span th:text="${password}"> </span></p>
+        </div>
+
+        <p>Vui lòng không cung cấp tài khoản, mật khẩu cho bất kì ai. Xin cảm ơn!</p>
+
+        <p th:if="${T(vn.vnsky.bcss.admin.constant.AuthConstants).VNSKY_CLIENT_ALIAS.equals(content)}">
+            <b>Link web nội bộ:</b>
+        </p>
+        <p th:unless="${T(vn.vnsky.bcss.admin.constant.AuthConstants).VNSKY_CLIENT_ALIAS.equals(content)}">
+            <b>Link web đối tác:</b>
+        </p>
+
+        <a th:href="@{${url}}" th:text="${url}"></a>
+
+        <h4><i th:text="${companyName}"></i></h4>
+    </div>
+</div>
+</body>
+</html>

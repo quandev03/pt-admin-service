@@ -1,0 +1,39 @@
+[
+  {
+    "status": 1,
+    "code": "R1",
+    "name": "Role 1",
+    "roleIds": [
+      "01JDPC7XEPWQ4PM0N9Z51AB0XN",
+      "01JE8CJ1YM6HS987YVS28QTGN1"
+    ],
+    "userIds": [
+      "01JACHQ3754DCM3Z2RTF7E5VNJ",
+      "01J86QN3M3RVZKS8J1K3VE4R12",
+      "01JM207ZSXY3VSJFHCPE6A7EHE"
+    ]
+  },
+  {
+    "status": 1,
+    "code": "G2",
+    "name": "Group 2",
+    "roleIds": [
+      "01J84M7F7YMSTJKW269DFESW68"
+    ],
+    "userIds": [
+      "01JBZNA1S2WEDFAPCEKW1VGVK3",
+      "01JCD944JT099AKQJGWZXHZDXS"
+    ]
+  },
+  {
+    "status": 0,
+    "code": "G3",
+    "name": "Group 3",
+    "roleIds": [
+      "01J84M7F7YMSTJKW269DFESW68"
+    ],
+    "userIds": [
+      "01J7B2JWHYEN6W9Q64DGQPA7J3"
+    ]
+  }
+]

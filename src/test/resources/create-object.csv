@@ -1,0 +1,4 @@
+name,url,isPartner,ordinal,code,parentId
+Object A,/object/a,True,1,CODE_A,
+Object B,/object/b,False,2,CODE_B,01J7DFA7FJ3F8MZEAJBCVR6MGS
+Object C,/object/c,True,3,CODE_C,01J7D3JMQ1YTK0QJBA491PZK9M

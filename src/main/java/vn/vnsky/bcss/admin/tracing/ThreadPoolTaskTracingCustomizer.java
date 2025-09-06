@@ -1,0 +1,24 @@
+package vn.vnsky.bcss.admin.tracing;
+
+import org.apache.logging.log4j.ThreadContext;
+import org.springframework.boot.task.ThreadPoolTaskExecutorCustomizer;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import vn.vnsky.bcss.admin.constant.TracingContextEnum;
+
+public class ThreadPoolTaskTracingCustomizer implements ThreadPoolTaskExecutorCustomizer {
+
+    @Override
+    public void customize(ThreadPoolTaskExecutor taskExecutor) {
+        taskExecutor.setTaskDecorator(command -> {
+            final String corrId = ThreadContext.get(TracingContextEnum.X_CORRELATION_ID.getThreadKey());
+            return () -> {
+                try {
+                    ThreadContext.put(TracingContextEnum.X_CORRELATION_ID.getThreadKey(), corrId);
+                    command.run();
+                } finally {
+                    ThreadContext.clearAll();
+                }
+            };
+        });
+    }
+}
