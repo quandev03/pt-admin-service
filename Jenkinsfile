@@ -17,17 +17,26 @@ pipeline {
     stage('Prepare .env') {
       steps {
         script {
+          env.ENV_FROM_CRED = 'false'
           if (fileExists('.env')) {
-            echo "[i] Found .env in repo -> sẽ dùng file này."
+            echo "[i] Found .env in repo -> dùng file này."
           } else {
             withCredentials([string(credentialsId: 'pt-admin-env', variable: 'ENV_CONTENT')]) {
               writeFile file: '.env', text: ENV_CONTENT
-              echo "[i] Wrote .env from Jenkins credentials."
+              env.ENV_FROM_CRED = 'true'
+              echo "[i] Viết .env từ Jenkins credentials."
             }
           }
+          sh '''
+            echo "== LS WORKSPACE =="
+            ls -la
+            echo "== HEAD .env (ẩn nội dung) =="
+            wc -c .env || true
+          '''
         }
       }
     }
+
 
     stage('Compose Version') {
       steps {
