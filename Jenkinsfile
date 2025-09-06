@@ -16,13 +16,15 @@ pipeline {
 
     stage('Prepare .env') {
       steps {
-        withCredentials([string(credentialsId: 'pt-admin-env', variable: 'ENV_CONTENT')]) {
-          sh '''
-            set -e
-            # tạo file .env trong workspace từ Secret text (giữ nguyên xuống dòng)
-            printf "%b" "$ENV_CONTENT" > .env
-            echo "[i] Wrote $(wc -l < .env) lines to .env"
-          '''
+        script {
+          if (fileExists('.env')) {
+            echo "[i] Found .env in repo -> sẽ dùng file này."
+          } else {
+            withCredentials([string(credentialsId: 'pt-admin-env', variable: 'ENV_CONTENT')]) {
+              writeFile file: '.env', text: ENV_CONTENT
+              echo "[i] Wrote .env from Jenkins credentials."
+            }
+          }
         }
       }
     }
