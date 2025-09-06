@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pt-admin-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SERVER_CTX_PATH=/
+      - DB_URL='jdbc:oracle:thin:@(DESCRIPTION= (TRANSPORT_CONNECT_TIMEOUT=5)(CONNECT_TIMEOUT=5)(RETRY_DELAY=10)(RETRY_COUNT=2)(FAILOVER=ON)(LOAD_BALANCE=off)(ADDRESS=(PROTOCOL=TCP)(HOST=34.71.97.204)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=FREEPDB1)))'
+      #DB_URL='jdbc:oracle:thin:@(DESCRIPTION= (TRANSPORT_CONNECT_TIMEOUT=5)(CONNECT_TIMEOUT=5)(RETRY_DELAY=10)(RETRY_COUNT=2)(FAILOVER=ON)(LOAD_BALANCE=off)(ADDRESS=(PROTOCOL=TCP)(HOST=42.96.40.31)(PORT=1521))(ADDRESS=(PROTOCOL=TCP)(HOST=42.96.40.31)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=BCSSTEST)))'
+      - DB_USERNAME=ADMIN_OWNER
+      - DB_PASSWORD=Abc@123
+      - MAIL_HOST=smtp.gmail.com
+      - MAIL_PORT=587
+      - MAIL_USERNAME=it.vissoft@gmail.com
+      - MAIL_PASSWORD='puba sxjs aijm idas'
+      - MAIL_PROTOCOL=smtp
+      - REDIS_URL=10.10.151.188:7000,10.10.151.188:7001,10.10.151.188:7002,10.10.151.188:7003,10.10.151.188:7004,10.10.151.188:7005
+      - REDIS_PASSWORD=123456
+      - MINIO_URL=https://api-minio-vnsky.vissoft.vn
+      - MINIO_ACCESS_KEY=GtdbB7RKwZI7hjLnEefY
+      - MINIO_SECRET_KEY=64Uv47y6dt5n3kkxvXx6KNdiLuyAm2E2AVgrvW2S
+      - MINIO_PUBLIC_BUCKET=bcss-public-dev
+      - MINIO_BUCKET_PRIVATE=bcss-private-dev
+      #MINIO_PUBLIC_BUCKET=bcss-public-test
+      #MINIO_BUCKET_PRIVATE=bcss-private-test
+      - AUDIT_QUEUE_NAME=system-audit
+      - MQ_HOST=kafka-vnsky.vissoft.vn
+      - MQ_PORT=8084
+      #MQ_HOST=kafka-vnsky-test.vissoft.vn
+      #MQ_PORT=7094
+      - MQ_GROUP_ID=admin-service-local
+      - JAAS_CONFIG='org.apache.kafka.common.security.plain.PlainLoginModule required username="vnsky" password="Vn5ky0903";'
+
+      - RSA_PUBLIC_KEY="
+        -----BEGIN PUBLIC KEY-----
+        MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAs47Jzq99kD3VDGu/lUp94JZAhXNHot/31s5bP0bm/skOy7s5kd9JjL7yuhfzldaUg/7lUBxk4TrCOyQ0cOGd04q0SyJLaAbkz77JDAA7OUePDU0mWGVNdULP+4ofdILiKjzqoecGgO687ejWO9EmfWoQt34iHbtaBkChB4qv1lGyhqzEwma5aOFaMWZHGc1PgNCuzJ67wL3DE+2lqoNwiMXlB/WXy7r1sfHPw5SImThi44YkJYX2T6PNxJHCg76/nvWsVLvsC2XXDfRg3icp6Q+9YQHuwAYrLS3l7mw8JYVqNnuoAHUc5BWhVCCdndi4LDaP+VJ0GFyddsqVSD4mAxRhhrZnpmkSdZznNhvu3YbQQ9EBq7Eohsw+8JEAZ+LJpLzTkRAjA3f7aSS5Xoj4qdFX2/oJoT4BCvWGr/sHUfJ2vhl1MfmSpca25N+PJ2inv+rsmDJ2OW4lnKprH5Or2y8eWWQJ14Av1CHTEjXJUMqK6gscLsyBg+H3e7fgiNMmW24pyUcOXu7eWdECZdbD9603yMwNP7J0rpvSBthmPeLqzHlr3YOOilfQoIhgDPXlSZT8EFMxtGjo2hNO/+ixpZR0VbJ+vmCUQLeetRCZNB6GPCBTTU5TjjWp2Ti/3+WVeX8lONKJo3prx8+1IsQfo0qdgMK268Qx/BbSU41Cw20CAwEAAQ==
+        -----END PUBLIC KEY-----
+       "
+      - RSA_PRIVATE_KEY="
+        -----BEGIN RSA PRIVATE KEY-----
+        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
+        -----END RSA PRIVATE KEY-----
+        "
+
+      - GOOGLE_CLOUD_API_KEY='{"web":{"client_id":"936937878730-fcvt1hpp5rb0a4gpqrmqhsl2q87cmvad.apps.googleusercontent.com","project_id":"vis-app-381716","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"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","redirect_uris":["http://localhost:8080/login/oauth2/code/google"],"javascript_origins":["http://localhost:8080"]}}'
+
+      - INTERNAL_WEB_URL=https://bcss-vnsky.vissoft.vn
+      - PARTNER_WEB_URL=https://partner.bcss-vnsky.vissoft.vn
+      - DOMAIN_SALE=https://hvn-api.vissoft.vn/hvn-sale-service
+    depends_on:
+      - db
