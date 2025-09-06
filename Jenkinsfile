@@ -1,11 +1,8 @@
 pipeline {
   agent any
   options { timestamps() }
-
   environment {
     COMPOSE_PROJECT_NAME = 'pt-admin'
-    // Dùng Docker Compose qua container
-    COMPOSE = 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $WORKSPACE:$WORKSPACE -w $WORKSPACE docker/compose:2.29.7'
   }
 
   stages {
@@ -19,6 +16,11 @@ pipeline {
       steps {
         sh '''#!/bin/sh
           set -e
+          WORKDIR="$(pwd -P)"
+          COMPOSE="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} \
+            docker/compose:2.29.7"
           echo "=== Compose version ==="
           $COMPOSE version
         '''
@@ -29,6 +31,11 @@ pipeline {
       steps {
         sh '''#!/bin/sh
           set -e
+          WORKDIR="$(pwd -P)"
+          COMPOSE="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} \
+            docker/compose:2.29.7"
           echo "=== Build bằng docker-compose (container) ==="
           $COMPOSE build
         '''
@@ -39,6 +46,11 @@ pipeline {
       steps {
         sh '''#!/bin/sh
           set -e
+          WORKDIR="$(pwd -P)"
+          COMPOSE="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} \
+            docker/compose:2.29.7"
           echo "=== Up -d ==="
           $COMPOSE up -d
         '''
@@ -50,7 +62,6 @@ pipeline {
         sh '''#!/bin/sh
           set -e
           echo "=== Kiểm tra app ==="
-          # chỉnh URL nếu service/port khác
           sleep 10
           curl -fsS http://localhost:8080/actuator/health > /dev/null
         '''
@@ -65,6 +76,11 @@ pipeline {
     failure {
       echo '❌ Deploy thất bại, in logs docker-compose'
       sh '''#!/bin/sh
+        WORKDIR="$(pwd -P)"
+        COMPOSE="docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} \
+          docker/compose:2.29.7"
         $COMPOSE logs --no-color app || true
       '''
     }
