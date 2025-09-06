@@ -1,7 +1,14 @@
 pipeline {
   agent any
+
+  environment {
+    // đặt tên stack cho dễ lọc container/network
+    COMPOSE_PROJECT_NAME = 'pt-admin'
+    // dùng compose v1 ổn định từ official image
+    COMPOSE_IMG = 'docker/compose:1.29.2'
+  }
+
   options { timestamps() }
-  environment { COMPOSE_PROJECT_NAME = 'pt-admin' }
 
   stages {
     stage('Checkout') {
@@ -12,67 +19,76 @@ pipeline {
 
     stage('Compose Version') {
       steps {
-        sh '''#!/bin/sh
-set -e
-if docker compose version >/dev/null 2>&1; then
-  echo ">>> Using host docker compose"
-  docker compose version
-  echo "HOST_COMPOSE=1" > .compose_env
-else
-  echo ">>> Using containerized docker/compose:latest"
-  WORKDIR="$(pwd -P)"
-  COMPOSE="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} docker/compose:latest"
-  echo "$COMPOSE version:"
-  $COMPOSE version
-  echo "HOST_COMPOSE=0" > .compose_env
-fi
-'''
+        sh '''
+          echo ">>> Using containerized ${COMPOSE_IMG}"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
+            ${COMPOSE_IMG} version
+        '''
       }
     }
 
     stage('Docker Compose Build') {
-        steps {
-            sh '''
-              echo "=== Build bằng docker compose ==="
-              docker compose build
-            '''
-        }
+      steps {
+        sh '''
+          echo "=== Build với docker-compose (v1) ==="
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
+            --env COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+            ${COMPOSE_IMG} \
+            -f ${WORKSPACE}/docker-compose.yml \
+            --env-file ${WORKSPACE}/.env \
+            build
+        '''
+      }
     }
+
     stage('Docker Compose Up') {
-        steps {
-            sh '''
-              echo "=== Run container bằng docker compose ==="
-              docker compose up -d
-            '''
-        }
+      steps {
+        sh '''
+          echo "=== Up -d ==="
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
+            --env COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+            ${COMPOSE_IMG} \
+            -f ${WORKSPACE}/docker-compose.yml \
+            --env-file ${WORKSPACE}/.env \
+            up -d --force-recreate
+        '''
+      }
     }
 
     stage('Health Check') {
       steps {
-        sh '''#!/bin/sh
-set -e
-echo "=== Kiểm tra app ==="
-sleep 10
-curl -fsS http://localhost:8080/actuator/health > /dev/null
-'''
+        sh '''
+          echo "=== Health check ==="
+          # cho app có thời gian khởi động
+          sleep 10
+          curl -sf http://localhost:8080/actuator/health | grep -qi '"status":"UP"'
+        '''
       }
     }
   }
 
   post {
-    success { echo '✅ Deploy thành công bằng Docker Compose' }
+    success {
+      echo '✅ Deploy thành công bằng docker-compose (containerized)'
+    }
     failure {
-      echo '❌ Deploy thất bại, in logs docker-compose'
-      sh '''#!/bin/sh
-. ./.compose_env || true
-if [ "$HOST_COMPOSE" = "1" ]; then
-  docker compose logs app || true
-else
-  WORKDIR="$(pwd -P)"
-  COMPOSE="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} docker/compose:latest"
-  $COMPOSE logs app || true
-fi
-'''
+      echo '❌ Deploy thất bại — in logs'
+      sh '''
+        docker run --rm \
+          -v /var/run/docker.sock:/var/run/docker.sock \
+          -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
+          --env COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+          ${COMPOSE_IMG} \
+          -f ${WORKSPACE}/docker-compose.yml \
+          --env-file ${WORKSPACE}/.env \
+          logs --no-color || true
+      '''
     }
   }
 }
