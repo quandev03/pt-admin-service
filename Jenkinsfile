@@ -52,31 +52,34 @@ pipeline {
 
     stage('Docker Compose Build') {
       steps {
-        sh '''
-          echo "=== Build với docker-compose (v1) ==="
+        sh """
+          echo '=== Build với docker-compose (v1) ==='
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
             -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
-            ${COMPOSE_IMG} \
-            -f docker-compose.yml --env-file .env build
-        '''
+            ${COMPOSE_IMAGE} \
+            -f docker-compose.yml \
+            build
+        """
       }
     }
 
     stage('Docker Compose Up') {
       steps {
-        sh '''
-          echo "=== Up -d ==="
+        sh """
+          echo '=== Up -d ==='
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
             -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
-            ${COMPOSE_IMG} \
-            -f docker-compose.yml --env-file .env up -d --force-recreate
-        '''
+            ${COMPOSE_IMAGE} \
+            -f docker-compose.yml \
+            up -d
+        """
       }
     }
+
 
     stage('Health Check') {
       steps {
@@ -89,22 +92,19 @@ pipeline {
     }
   }
 
-  post {
-    success { echo '✅ Deploy OK với docker-compose' }
-    failure {
-      echo '❌ Deploy fail — in logs'
-      sh '''
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
-          -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
-          ${COMPOSE_IMG} \
-          -f docker-compose.yml --env-file .env logs --no-color || true
-      '''
-    }
-    always {
-      // dọn dẹp file .env sinh ra (tuỳ chọn)
-      sh 'shred -u .env || true'
-    }
+
+post {
+  failure {
+    echo '❌ Deploy fail — in logs'
+    sh """
+      docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v ${WORKSPACE}:${WORKSPACE} -w ${WORKSPACE} \
+        -e COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME} \
+        ${COMPOSE_IMAGE} \
+        -f docker-compose.yml \
+        logs --no-color || true
+    """
   }
+}
 }
