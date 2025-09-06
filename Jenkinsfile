@@ -25,15 +25,16 @@ pipeline {
           sh '''
             set -e
 
-            # login registry (để pull base private & push)
+            # Đăng nhập Harbor bằng biến đúng
+            docker logout harbor.vissoft.vn || true
             echo "$HPASS" | docker login harbor.vissoft.vn -u "$HUSER" --password-stdin
 
-            # Bật BuildKit & chuẩn bị builder
+            # Bật BuildKit + buildx
             export DOCKER_BUILDKIT=1
             docker buildx create --name jxbuilder --use || docker buildx use jxbuilder
             docker buildx inspect --bootstrap
 
-            # Build & PUSH (truyền settings.xml qua secret, KHÔNG ghi vào image)
+            # Build & push (truyền settings.xml qua secret)
             docker buildx build \
               --secret id=mvnsettings,src=${MVN_SETTINGS} \
               -t harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER} \
