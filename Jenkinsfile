@@ -5,6 +5,49 @@ pipeline {
         COMPOSE_PROJECT_NAME = "pt-admin"
     }
 
+    stage('Docker Compose Build') {
+      steps {
+        sh '''
+          set -e
+          COMPOSE="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:$PWD -w $PWD \
+            docker/compose:2.29.7"
+
+          echo "=== Build bằng docker-compose (container) ==="
+          $COMPOSE version
+          $COMPOSE build
+        '''
+      }
+    }
+
+    stage('Docker Compose Up') {
+      steps {
+        sh '''
+          set -e
+          COMPOSE="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:$PWD -w $PWD \
+            docker/compose:2.29.7"
+
+          echo "=== Up -d ==="
+          $COMPOSE up -d
+        '''
+      }
+    }
+
+    post {
+      failure {
+        sh '''
+          COMPOSE="docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:$PWD -w $PWD \
+            docker/compose:2.29.7"
+          $COMPOSE logs app || true
+        '''
+      }
+    }
+
     stages {
         stage('Checkout') {
             steps {
