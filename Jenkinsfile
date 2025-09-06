@@ -31,35 +31,20 @@ fi
     }
 
     stage('Docker Compose Build') {
-      steps {
-        sh '''#!/bin/sh
-set -e
-. ./.compose_env || true
-if [ "$HOST_COMPOSE" = "1" ]; then
-  docker compose build
-else
-  WORKDIR="$(pwd -P)"
-  COMPOSE="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} docker/compose:latest"
-  $COMPOSE build
-fi
-'''
-      }
+        steps {
+            sh '''
+              echo "=== Build bằng docker compose ==="
+              docker compose build
+            '''
+        }
     }
-
     stage('Docker Compose Up') {
-      steps {
-        sh '''#!/bin/sh
-set -e
-. ./.compose_env || true
-if [ "$HOST_COMPOSE" = "1" ]; then
-  docker compose up -d
-else
-  WORKDIR="$(pwd -P)"
-  COMPOSE="docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKDIR}:${WORKDIR} -w ${WORKDIR} docker/compose:latest"
-  $COMPOSE up -d
-fi
-'''
-      }
+        steps {
+            sh '''
+              echo "=== Run container bằng docker compose ==="
+              docker compose up -d
+            '''
+        }
     }
 
     stage('Health Check') {
