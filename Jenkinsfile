@@ -10,23 +10,24 @@ pipeline {
 
       stage('Docker Build & Push') {
         steps {
-          withCredentials([usernamePassword(
-            credentialsId: 'harbor-creds',
-            usernameVariable: 'HUSER',
-            passwordVariable: 'HPASS'
-          )]) {
-            sh '''
-              #!/usr/bin/env bash
-              set -euo pipefail
+          withCredentials([usernamePassword(credentialsId: 'harbor-creds', usernameVariable: 'HUSER', passwordVariable: 'HPASS')]) {
+            sh '''#!/usr/bin/env bash
+      set -euo pipefail
 
-              echo ">> Using Harbor user: ${HUSER}"   # username KHÔNG bị mask nên thấy được
-              docker logout harbor.vissoft.vn || true
-              echo "$HPASS" | docker login harbor.vissoft.vn -u "$HUSER" --password-stdin
+      echo ">> Docker login with user: $HUSER"
+      docker logout harbor.vissoft.vn || true
+      echo "$HPASS" | docker login harbor.vissoft.vn -u "$HUSER" --password-stdin
 
-              # ví dụ build/push
-              DOCKER_BUILDKIT=1 docker build -t harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER} .
-              docker push harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER}
-            '''
+      # (nếu cần buildx/BuildKit)
+      # export DOCKER_BUILDKIT=1
+      # docker buildx create --name jxbuilder --use || docker buildx use jxbuilder
+      # docker buildx inspect --bootstrap
+      # docker buildx build -t harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER} --push .
+
+      # hoặc legacy build:
+      docker build -t harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER} .
+      docker push harbor.vissoft.vn/vnsky/hvn-admin-service:${BUILD_NUMBER}
+      '''
           }
         }
       }
