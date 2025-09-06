@@ -1,29 +1,29 @@
-ARG BASE_BUILDER="harbor.vissoft.vn/vnsky/java-builder"
-ARG BASE_RUNNER="harbor.vissoft.vn/vnsky/java-runner"
+# syntax=docker/dockerfile:1.7
 
-FROM $BASE_BUILDER AS builder
-LABEL org.opencontainers.image.authors="doanhcd"
+ARG BASE_BUILDER="maven:3.9.9-eclipse-temurin-17"
+ARG BASE_RUNNER="eclipse-temurin:17-jre-jammy"
+
+FROM ${BASE_BUILDER} AS builder
 WORKDIR /app
-ENV TZ=Asia/Ho_Chi_Minh
-COPY ./pom.xml ./pom.xml
-ARG MVN_REMOTE_REPO="https://repo1.maven.org/maven2/"
-RUN echo "Using maven repo: $MVN_REMOTE_REPO" && \
-    mvn -B dependency:go-offline
-COPY . /app
-RUN mvn clean package -DskipTests=true
 
+# copy pom.xml và mvnw để cache dependencies
+COPY pom.xml mvnw ./
+COPY .mvn/ .mvn/
 
-FROM $BASE_RUNNER AS runner
-LABEL org.opencontainers.image.authors="doanhcd"
-WORKDIR /app
-ENV TZ=Asia/Ho_Chi_Minh
+# Nếu có settings.xml từ Jenkins secret → mount bằng BuildKit
+RUN --mount=type=secret,id=mvnsettings,target=/root/.m2/settings.xml \
+    ./mvnw -ntp -B -DskipTests dependency:go-offline
 
-COPY --from=builder /app/target/admin-service-0.0.1-SNAPSHOT.jar /opt
-RUN adduser -r -m admin-service && \
-    chmod +x /opt/admin-service-0.0.1-SNAPSHOT.jar && \
-    chown -R admin-service:admin-service /app
-USER admin-service
+# copy source và build
+COPY src/ src/
+RUN --mount=type=secret,id=mvnsettings,target=/root/.m2/settings.xml \
+    ./mvnw -ntp -B -DskipTests clean package
 
-ENTRYPOINT ["java"]
-CMD ["-jar", "/opt/admin-service-0.0.1-SNAPSHOT.jar"]
-EXPOSE 8080
+FROM ${BASE_RUNNER} AS runner
+WORKDIR /opt/app
+
+COPY --from=builder /app/target/*-SNAPSHOT.jar app.jar
+
+USER 1000
+EXPOSE 8081
+ENTRYPOINT ["java","-jar","/opt/app/app.jar"]
