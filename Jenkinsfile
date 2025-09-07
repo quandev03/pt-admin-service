@@ -104,7 +104,13 @@ pipeline {
         expression {
           // Chạy nếu file compose có service "app"
           // Không fail pipeline ở bước when nếu grep không thấy
-          return sh(script: "grep -E '^\\s*app:' ${env.COMPOSE_FILE} >/dev/null 2>&1; echo $?", returnStdout: true).trim() == '0'
+          return sh(script: "sh '''
+                               set -e
+                               # Kiểm tra service app có trong compose file không
+                               grep -n '^\s*app:' "$COMPOSE_FILE" >/dev/null || {
+                                 echo "[WARN] Không thấy service 'app' trong $COMPOSE_FILE"
+                               }
+                             '''", returnStdout: true).trim() == '0'
         }
       }
       steps {
