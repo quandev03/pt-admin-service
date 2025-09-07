@@ -52,5 +52,3 @@ services:
       - INTERNAL_WEB_URL=https://bcss-vnsky.vissoft.vn
       - PARTNER_WEB_URL=https://partner.bcss-vnsky.vissoft.vn
       - DOMAIN_SALE=https://hvn-api.vissoft.vn/hvn-sale-service
-    depends_on:
-      - db
