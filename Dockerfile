@@ -1,13 +1,16 @@
 FROM maven:3.9.9-eclipse-temurin-17 AS builder
 WORKDIR /app
+
+# copy wrapper trước
 COPY pom.xml mvnw ./
 COPY .mvn/ .mvn/
-RUN ./mvnw -B dependency:go-offline
-COPY . .
-RUN ./mvnw clean package -DskipTests
 
-FROM eclipse-temurin:17-jre-jammy
-WORKDIR /app
-COPY --from=builder /app/target/*.jar app.jar
-EXPOSE 8081
-ENTRYPOINT ["java","-jar","/app/app.jar"]
+# 🔧 Fix EOL + cấp quyền thực thi cho mvnw
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
+
+# tải dependency để cache layer
+RUN ./mvnw -B -DskipTests dependency:go-offline
+
+# copy source và build
+COPY src/ src/
+RUN ./mvnw -B -DskipTests package
