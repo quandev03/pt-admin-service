@@ -1,106 +1,58 @@
-pipeline {
-  agent any
+environment {
+  COMPOSE_BIN = '/usr/local/bin/docker-compose'
+  COMPOSE_VER = '1.29.2'   // ổn định cho môi trường server
+}
 
-  environment {
-    COMPOSE_IMAGE = 'docker/compose:1.29.2'
-    COMPOSE_PROJECT_NAME = 'pt-admin'
-  }
-
-  stages {
-    stage('Checkout') {
-      steps {
-        git branch: 'develop', url: 'https://github.com/quandev03/pt-admin-service.git'
-        sh '''
-          echo "== LS WORKSPACE =="
-          ls -la
-          echo "== Check files =="
-          test -f "${WORKSPACE}/docker-compose.yml" && echo "OK: docker-compose.yml" || (echo "MISS: docker-compose.yml" && exit 1)
-          test -f "${WORKSPACE}/.env" && echo "OK: .env" || echo "WARN: .env not found (Compose vẫn chạy nếu biến đã có default)"
-        '''
-      }
-    }
-
-    stage('Compose Version') {
-      steps {
-        sh '''
-          echo ">>> Using ${COMPOSE_IMAGE}"
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "${WORKSPACE}:${WORKSPACE}" \
-            "${COMPOSE_IMAGE}" version
-        '''
-      }
-    }
-
-    stage('Docker Compose Build') {
-      steps {
-        sh '''
-          echo "=== Build với docker-compose (v1) ==="
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "${WORKSPACE}:${WORKSPACE}" \
-            -e COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}" \
-            "${COMPOSE_IMAGE}" \
-            -f "${WORKSPACE}/docker-compose.yml" \
-            --project-directory "${WORKSPACE}" \
-            build
-        '''
-      }
-    }
-
-    stage('Docker Compose Up') {
-      steps {
-        sh '''
-          echo "=== Up -d ==="
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "${WORKSPACE}:${WORKSPACE}" \
-            -e COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}" \
-            "${COMPOSE_IMAGE}" \
-            -f "${WORKSPACE}/docker-compose.yml" \
-            --project-directory "${WORKSPACE}" \
-            up -d
-        '''
-      }
-    }
-
-    stage('Health Check') {
-      steps {
-        sh '''
-          echo "=== Kiểm tra app ==="
-          sleep 10
-          # chỉnh lại endpoint/port nếu khác
-          curl -fsS http://localhost:8080/actuator/health | tee /dev/stderr | grep -qi '"status":"UP"'
-        '''
-      }
-    }
-  }
-
-  post {
-    failure {
-      echo "❌ Deploy fail — in logs"
+stages {
+  stage('Compose Install') {
+    steps {
       sh '''
-        # In logs không cần .env; dùng tuyệt đối & --project-directory
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v "${WORKSPACE}:${WORKSPACE}" \
-          -e COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}" \
-          "${COMPOSE_IMAGE}" \
-          -f "${WORKSPACE}/docker-compose.yml" \
-          --project-directory "${WORKSPACE}" \
-          ps
-        docker run --rm \
-          -v /var/run/docker.sock:/var/run/docker.sock \
-          -v "${WORKSPACE}:${WORKSPACE}" \
-          -e COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}" \
-          "${COMPOSE_IMAGE}" \
-          -f "${WORKSPACE}/docker-compose.yml" \
-          --project-directory "${WORKSPACE}" \
-          logs --no-color || true
+        set -e
+        if ! ${COMPOSE_BIN} version >/dev/null 2>&1; then
+          echo ">> Install docker-compose ${COMPOSE_VER}"
+          (curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VER}/docker-compose-$(uname -s)-$(uname -m)" -o ${COMPOSE_BIN} \
+            || wget -qO ${COMPOSE_BIN} "https://github.com/docker/compose/releases/download/${COMPOSE_VER}/docker-compose-$(uname -s)-$(uname -m)")
+          chmod +x ${COMPOSE_BIN}
+        fi
+        ${COMPOSE_BIN} version
       '''
     }
-    success {
-      echo "✅ Deploy thành công bằng Docker Compose"
+  }
+
+  stage('Docker Compose Build') {
+    steps {
+      sh '''
+        set -e
+        echo "== LS =="
+        ls -la
+        test -f docker-compose.yml
+        test -f .env
+
+        echo "=== Build với docker-compose ==="
+        ${COMPOSE_BIN} -f docker-compose.yml --env-file .env build
+      '''
     }
+  }
+
+  stage('Docker Compose Up') {
+    steps {
+      sh '''
+        set -e
+        echo "=== Up -d ==="
+        ${COMPOSE_BIN} -f docker-compose.yml --env-file .env up -d
+
+        echo "=== PS ==="
+        ${COMPOSE_BIN} -f docker-compose.yml ps
+      '''
+    }
+  }
+}
+
+post {
+  failure {
+    echo "❌ Deploy fail — in logs"
+    sh '''
+      ${COMPOSE_BIN} -f docker-compose.yml --env-file .env logs --no-color || true
+    '''
   }
 }
