@@ -3,7 +3,7 @@ FROM maven:3.9.9-eclipse-temurin-17 AS builder
 WORKDIR /app
 
 # Maven settings (Jenkinsfile đã tạo sẵn settings.xml ở root)
-COPY settings.xml /root/.m2/settings.xml
+COPY settings-vnsky.xml /root/.m2/settings.xml
 
 # Maven wrapper & dependencies cache
 COPY pom.xml mvnw ./
