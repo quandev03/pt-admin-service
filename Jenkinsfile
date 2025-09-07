@@ -3,20 +3,15 @@ pipeline {
 
   options {
     timestamps()
-    ansiColor('xterm')
+    skipDefaultCheckout(true)
     buildDiscarder(logRotator(numToKeepStr: '20'))
-    disableConcurrentBuilds()
   }
 
   environment {
-    // Tên project docker-compose để dễ quản lý
-    COMPOSE_PROJECT_NAME = 'pt-admin'
-    // Dùng file compose mặc định tại root repo
-    COMPOSE_FILE = 'docker-compose.yml'
-    // Đường dẫn docker-compose binary (đã có 1.29.2 trên host)
-    DC = '/usr/local/bin/docker-compose'
-    // ID Managed File cho Maven settings
-    MAVEN_SETTINGS_ID = 'maven-settings-vnsky'
+    DOCKER_COMPOSE = '/usr/local/bin/docker-compose' // đã có trên máy Jenkins của bạn
+    COMPOSE_FILE   = 'docker-compose.yml'
+    ENV_FILE       = '.env'
+    APP_SERVICE    = 'app' // đổi nếu service tên khác
   }
 
   stages {
@@ -32,34 +27,30 @@ pipeline {
           set -e
           echo ">>> PWD: $(pwd)"
           ls -la
-          test -f "${COMPOSE_FILE}"
-          test -f ".env"
 
-          # Chuẩn hoá .env (loại CRLF nếu có)
-          sed -i 's/\r$//' .env || true
+          echo ">>> Kiểm tra file bắt buộc"
+          test -f "$COMPOSE_FILE"
+          test -f "$ENV_FILE"
 
-          echo ">>> Kích thước .env:"
-          wc -c .env || true
+          # Chuẩn hóa CRLF -> LF cho .env
+          sed -i 's/\r$//' "$ENV_FILE" || true
+          echo ">>> Kích thước .env:"; wc -c "$ENV_FILE" || true
+
+          # Xử lý Maven settings: ưu tiên ci/settings.xml, sau đó settings.xml; nếu không có tạo rỗng
+          if [ -f ci/settings.xml ]; then
+            echo "[i] Found ci/settings.xml -> copy sang settings.xml"
+            cp -f ci/settings.xml settings.xml
+          elif [ -f settings.xml ]; then
+            echo "[i] Found settings.xml tại root repo"
+          else
+            echo "[i] Không có settings.xml -> tạo rỗng (OK nếu chỉ dùng Maven Central)"
+            mkdir -p .
+            printf '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"/>\n' > settings.xml
+          fi
+
+          echo ">>> Liệt kê nhanh:"
+          ls -la | sed -n '1,100p'
         '''
-      }
-    }
-
-    stage('Materialize Maven settings.xml') {
-      steps {
-        script {
-          sh 'mkdir -p ci'
-
-          // Lấy settings.xml từ Managed Files
-          configFileProvider([configFile(fileId: env.MAVEN_SETTINGS_ID, targetLocation: 'ci/settings.xml')]) {
-            sh '''
-              set -e
-              echo "=== settings.xml đã ghi vào ci/settings.xml ==="
-              ls -la ci
-              # show vài dòng đầu để debug (không in toàn bộ)
-              head -n 5 ci/settings.xml || true
-            '''
-          }
-        }
       }
     }
 
@@ -67,7 +58,11 @@ pipeline {
       steps {
         sh '''
           set -e
-          ${DC} version
+          if ! "$DOCKER_COMPOSE" version >/dev/null 2>&1; then
+            echo "[!] Không tìm thấy docker-compose tại $DOCKER_COMPOSE"
+            exit 1
+          fi
+          "$DOCKER_COMPOSE" version
         '''
       }
     }
@@ -77,12 +72,7 @@ pipeline {
         sh '''
           set -e
           echo "=== docker-compose build ==="
-          # In danh sách để chắc chắn settings.xml có trong context
-          echo "== LS ROOT ==" && ls -la
-          echo "== LS ci ==" && ls -la ci
-
-          # Build với env-file để thay biến trong compose (nếu compose dùng ${VAR})
-          ${DC} -f "${COMPOSE_FILE}" --env-file .env build
+          "$DOCKER_COMPOSE" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build
         '''
       }
     }
@@ -92,39 +82,35 @@ pipeline {
         sh '''
           set -e
           echo "=== docker-compose up -d ==="
-          ${DC} -f "${COMPOSE_FILE}" --env-file .env up -d
-          echo "=== docker-compose ps ==="
-          ${DC} -f "${COMPOSE_FILE}" --env-file .env ps
+          "$DOCKER_COMPOSE" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+
+          echo "=== Đợi container lên (nếu có service app) ==="
+          if "$DOCKER_COMPOSE" -f "$COMPOSE_FILE" config --services | grep -q "^$APP_SERVICE$"; then
+            for i in $(seq 1 30); do
+              CID=$("$DOCKER_COMPOSE" -f "$COMPOSE_FILE" ps -q "$APP_SERVICE" || true)
+              if [ -n "$CID" ]; then
+                STATUS=$(docker inspect -f '{{.State.Status}} {{.State.Health.Status}}' "$CID" 2>/dev/null || true)
+                echo "[i] $APP_SERVICE status: $STATUS"
+                echo "$STATUS" | grep -E 'running|healthy' >/dev/null && break
+              fi
+              sleep 2
+            done
+          else
+            echo "[i] Không thấy service '$APP_SERVICE' trong compose -> bỏ qua chờ."
+          fi
         '''
       }
     }
 
-    stage('Health Check (app)') {
-      when {
-        expression {
-          // Chạy nếu file compose có service "app"
-          // Không fail pipeline ở bước when nếu grep không thấy
-          return sh(script: "sh '''
-                               set -e
-                               # Kiểm tra service app có trong compose file không
-                               grep -n '^\s*app:' "$COMPOSE_FILE" >/dev/null || {
-                                 echo "[WARN] Không thấy service 'app' trong $COMPOSE_FILE"
-                               }
-                             '''", returnStdout: true).trim() == '0'
-        }
-      }
+    stage('Validate compose file (optional)') {
       steps {
-        // Tuỳ theo app của bạn, điều chỉnh liveness path/port
         sh '''
           set -e
-          echo "=== Kiểm tra container app có up không ==="
-          ${DC} -f "${COMPOSE_FILE}" --env-file .env ps
-
-          # Thử curl local nếu app map cổng, ví dụ 8081
-          # Điều chỉnh URL/port/path cho đúng thực tế dự án
-          if command -v curl >/dev/null 2>&1; then
-            echo "=== Thử HTTP health ==="
-            curl -m 5 -fsS http://127.0.0.1:8081/actuator/health || true
+          echo ">>> Kiểm tra (optional) service app trong compose:"
+          if grep -n '^[[:space:]]*app:' "$COMPOSE_FILE" >/dev/null; then
+            echo "[i] Tìm thấy service 'app'."
+          else
+            echo "[WARN] Không thấy 'app' trong $COMPOSE_FILE (không sao nếu bạn đặt tên khác)."
           fi
         '''
       }
@@ -133,27 +119,21 @@ pipeline {
 
   post {
     success {
-      echo "✅ Deploy thành công!"
+      echo '✅ Deploy OK'
       sh '''
-        echo "=== Containers đang chạy ==="
-        docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        "$DOCKER_COMPOSE" -f "$COMPOSE_FILE" ps || true
       '''
     }
-
     failure {
-      echo "❌ Deploy fail — in logs"
-      // Thử in logs của compose nếu fail sớm
+      echo '❌ Deploy fail — in logs'
       sh '''
         set +e
-        ${DC} -f "${COMPOSE_FILE}" --env-file .env logs --no-color || true
-        echo "=== Containers hiện tại ==="
+        "$DOCKER_COMPOSE" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --no-color || true
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
       '''
     }
-
     always {
-      // Không xóa .env để lần sau còn dùng; settings.xml cũng giữ lại để build lần tới.
-      echo "=== Pipeline kết thúc ==="
+      echo '🏁 Pipeline kết thúc.'
     }
   }
 }
