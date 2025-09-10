@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: vnsky/spring-app:latest
-    container_name: vnsky-spring-app
+    container_name: admin-service-dev
     env_file:
       - .env
     ports:
