@@ -1,25 +1,27 @@
-# ---------- Build stage ----------
-FROM maven:3.9.9-eclipse-temurin-17 AS builder
-WORKDIR /app
+# ===== STAGE 1: BUILD =====
+FROM maven:3.9-eclipse-temurin-21 AS build
 
-# Maven settings (Jenkinsfile đã tạo sẵn settings.xml ở root)
+# Sao chép settings Maven (đổi tên file của bạn ở đây)
 COPY settings-vnsky.xml /root/.m2/settings.xml
 
-# Maven wrapper & dependencies cache
-COPY pom.xml mvnw ./
-COPY .mvn/ .mvn/
-RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
-RUN ./mvnw -B -DskipTests dependency:go-offline
+# Tối ưu cache: copy pom trước, tải dependencies
+WORKDIR /workspace
+COPY pom.xml .
+RUN mvn -s /root/.m2/settings.xml -e -B -U -DskipTests dependency:go-offline
 
-# Source & package
+# Copy source và build
 COPY src ./src
-RUN ./mvnw -B -DskipTests package
+RUN mvn -s /root/.m2/settings.xml -e -B -DskipTests package
 
-# ---------- Runtime stage ----------
-FROM eclipse-temurin:17-jre
+# ===== STAGE 2: RUNTIME =====
+FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=builder /app/target/*.jar /app/app.jar
 
-ENV JAVA_OPTS=""
-EXPOSE 8081
-ENTRYPOINT ["sh","-c","java $JAVA_OPTS -jar /app/app.jar"]
+# Lấy file jar đã build
+COPY --from=build /workspace/target/*.jar app.jar
+
+# Múi giờ VN (tuỳ chọn)
+ENV TZ=Asia/Ho_Chi_Minh
+
+# Bạn có thể truyền JAVA_OPTS qua docker compose (.env)
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]
