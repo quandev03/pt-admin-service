@@ -76,21 +76,8 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        // Liệt kê origin được phép (không dùng "*" nếu dùng credentials)
-        config.setAllowedOrigins(List.of(
-                "http://localhost:4200",
-                "http://127.0.0.1:4200"
-                // thêm origin thật của UI nếu có (VD: "https://admin.your-domain.com")
-        ));
-        config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","PATCH","OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization","Content-Type","Accept","Accept-Language","Origin","X-Requested-With"));
-        config.setExposedHeaders(List.of("Location","Content-Disposition"));
-        config.setAllowCredentials(true);   // để true nếu dùng cookie/session; với Bearer token có thể để false
-        config.setMaxAge(3600L);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
@@ -160,8 +147,7 @@ public class SecurityConfig {
         httpSecurity
                 // Redirect to the login page when not authenticated from the
                 // authorization endpoint
-                .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
+                .cors(httpSecurityCorsConfigurer -> httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource()))
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(authenticationEntryPoint, requestMatcher)
                         .defaultAccessDeniedHandlerFor(accessDeniedHandler, requestMatcher)
