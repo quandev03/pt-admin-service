@@ -168,3 +168,9 @@ minio:
 domain:
   internal:
     domain-sale: ${DOMAIN_SALE}
+logging:
+  level:
+    org.springframework.transaction: TRACE
+    org.springframework.jdbc.datasource.DataSourceTransactionManager: DEBUG
+    org.springframework.jdbc.core: DEBUG   # xem SQL nếu dùng JdbcTemplate
+    org.hibernate.SQL: DEBUG              # nếu đi qua JPA/Hibernate
