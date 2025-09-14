@@ -89,6 +89,7 @@ public class ObjectRepositoryImpl implements ObjectRepositoryCustom {
 
     @Override
     public List<MenuItemDTO> getMenuItemFlat(String userId, boolean isOwner, String appCode) {
+        log.info("[DEBUG] UserId = {}, appCode = {}", userId, appCode);
         StoredProcedureQuery storedProcedure = this.entityManager.createStoredProcedureQuery("GET_MENU_ITEM_FLAT");
         storedProcedure.registerStoredProcedureParameter(USER_ID_PARAM, String.class, ParameterMode.IN);
         storedProcedure.registerStoredProcedureParameter(APP_CODE_PARAM, String.class, ParameterMode.IN);

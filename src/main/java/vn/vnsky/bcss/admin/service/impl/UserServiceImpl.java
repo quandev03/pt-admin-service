@@ -713,6 +713,7 @@ public class UserServiceImpl implements UserService {
         }
         boolean isOwner = AuthConstants.OWNER_TYPE.equals(optionalUser.get().getType());
         boolean isMobile = deviceService.getIsMobile(httpHeaders);
+        log.info("[DEBUG] is mobile: {}, is owner: {}", isMobile, isOwner);
         String appCode;
         if(isMobile){
             appCode = applicationProperties.getSaleAppOAuth2ClientInfo().getClientId();
