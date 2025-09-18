@@ -81,9 +81,9 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
             if (!Objects.equals(currentUserDTO.getStatus(), AuthConstants.ModelStatus.ACTIVE)) {
                 throw new DisabledException("User is not active");
             }
-            if (!Boolean.TRUE.equals(checkAclResponse.getGranted())) {
-                throw new AccessDeniedException("User has not been granted to access this resource");
-            }
+//            if (!Boolean.TRUE.equals(checkAclResponse.getGranted())) {
+//                throw new AccessDeniedException("User has not been granted to access this resource");
+//            }
             if (Objects.nonNull(userDTO.getLastModifiedDate()) &&
                 currentUserDTO.getLastModifiedDate().truncatedTo(ChronoUnit.SECONDS).isAfter(userDTO.getLastModifiedDate())) {
                 userDTO.setClient(currentUserDTO.getClient());

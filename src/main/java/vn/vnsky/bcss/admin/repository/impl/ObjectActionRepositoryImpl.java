@@ -5,9 +5,11 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.vnsky.bcss.admin.dto.ObjectActionDTO;
 import vn.vnsky.bcss.admin.repository.ObjectActionRepositoryCustom;
+import vn.vnsky.bcss.admin.repository.ObjectActionsRepository;
 import vn.vnsky.bcss.admin.util.DbMapper;
 
 import java.util.List;
@@ -32,17 +34,22 @@ public class ObjectActionRepositoryImpl implements ObjectActionRepositoryCustom 
 
     private final DbMapper dbMapper;
 
+    private final ObjectActionsRepository objectActionsRepository;
+
     @Autowired
-    public ObjectActionRepositoryImpl(DbMapper dbMapper) {
-        this.dbMapper = dbMapper;
+    public ObjectActionRepositoryImpl(DbMapper dbMapper, ObjectActionsRepository objectActionsRepository) {
+        this.dbMapper = dbMapper; this.objectActionsRepository = objectActionsRepository;
     }
 
     @Override
     public List<ObjectActionDTO> findByApiCatalogId(String apiCatalogId) {
+        List<Tuple> result = objectActionsRepository.getPermissions(apiCatalogId);
         Query query = this.entityManager.createNativeQuery(ACL_SQL, Tuple.class);
         query.setParameter("apiCatalogId", apiCatalogId);
         List<Tuple> resultSet = query.getResultList();
         return this.dbMapper.castSqlResult(resultSet, ObjectActionDTO.class);
     }
+
+
 
 }
