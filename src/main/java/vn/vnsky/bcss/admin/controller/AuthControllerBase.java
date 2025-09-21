@@ -157,7 +157,7 @@ public abstract class AuthControllerBase {
         Map<String, Set<String>> policyMap = userPolicyDTO.getResourceAccess();
         List<PermissionDTO> permissionDTOList = permissionCheckDTO.getCheckPermissions();
         boolean allowed = this.objectService.checkPolicy(policyMap, permissionDTOList);
-        permissionCheckDTO.setAllowed(true);
+        permissionCheckDTO.setAllowed(allowed);
         return ResponseEntity.status(HttpStatus.OK).body(permissionCheckDTO);
     }
 
