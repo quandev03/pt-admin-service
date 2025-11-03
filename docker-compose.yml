@@ -10,3 +10,8 @@ services:
     ports:
       - "${APP_PORT_HOST:-8081}:8081"
     restart: unless-stopped
+    networks:
+      - pt-net
+networks:
+  pt-net:
+    external: true
