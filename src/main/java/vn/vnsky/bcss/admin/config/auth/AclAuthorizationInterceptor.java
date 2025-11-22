@@ -91,6 +91,7 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
                 userDTO.setFullname(currentUserDTO.getFullname());
             }
         }
+        log.info("Check done");
         return true;
     }
 
