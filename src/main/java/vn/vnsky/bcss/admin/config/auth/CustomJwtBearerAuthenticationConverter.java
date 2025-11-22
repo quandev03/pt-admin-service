@@ -58,7 +58,13 @@ public class CustomJwtBearerAuthenticationConverter implements Converter<Jwt, Ab
                         .build())
                 .build();
         principal.setAttribute("appId", jwt.getClaimAsString("app_id"));
-        principal.setAttribute("appCode", jwt.getClaimAsString("app_code"));
+        String appCode = jwt.getClaimAsString("app_code");
+        // Fallback to client_id if app_code is not present
+        if (!StringUtils.hasText(appCode)) {
+            appCode = jwt.getClaimAsString("client_id");
+            log.warn("JWT missing app_code claim, using client_id as fallback: {}", appCode);
+        }
+        principal.setAttribute("appCode", appCode);
         principal.setAttribute("appName", jwt.getClaimAsString("app_name"));
         String ssoProvider = jwt.getClaimAsString("sso_provider");
         if (StringUtils.hasText(ssoProvider)) {

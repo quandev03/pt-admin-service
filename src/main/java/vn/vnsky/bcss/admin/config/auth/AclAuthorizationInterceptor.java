@@ -62,9 +62,29 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
             authentication.getPrincipal() instanceof UserDTO userDTO) {
             String apiUriPattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
             String appCode = userDTO.getAttribute("appCode");
+            String requestUri = request.getRequestURI();
+            
+            // Log for debugging
+            log.debug("ACL Check - URI: {}, Pattern: {}, AppCode: {}, Method: {}", 
+                requestUri, apiUriPattern, appCode, request.getMethod());
+            
+            if (appCode == null || appCode.isEmpty()) {
+                log.error("ACL Check failed - appCode is null or empty for user: {}, URI: {}", 
+                    userDTO.getUsername(), requestUri);
+                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: appCode is missing");
+            }
+            
             RequestMatcher requestMatcher = oauth2ClientAclRule.get(appCode);
-            if (requestMatcher == null || !requestMatcher.matches(request)) {
-                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource");
+            if (requestMatcher == null) {
+                log.error("ACL Check failed - No RequestMatcher found for appCode: {}, URI: {}, Available appCodes: {}", 
+                    appCode, requestUri, oauth2ClientAclRule.keySet());
+                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: appCode '" + appCode + "' not found in ACL rules");
+            }
+            
+            if (!requestMatcher.matches(request)) {
+                log.error("ACL Check failed - Request URI '{}' does not match pattern for appCode: {}", 
+                    requestUri, appCode);
+                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: URI pattern mismatch");
             }
             PolicyCheckDTO checkAclRequest = PolicyCheckDTO.builder()
                     .appCode(appCode)
