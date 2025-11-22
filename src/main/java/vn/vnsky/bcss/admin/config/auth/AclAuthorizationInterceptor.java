@@ -118,8 +118,11 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
                     return null;
                 }
             };
-            
-            if (!requestMatcher.matches(matchingRequest) && !requestUri.equals("/admin-service/error")) {
+
+            if(requestUri.equals("/admin-service/error")){
+                return true;
+            }
+            if (!requestMatcher.matches(matchingRequest)) {
                 log.error("ACL Check failed - Request URI '{}' (matching: '{}') does not match pattern for appCode: {}", 
                     requestUri, finalUriForMatching, appCode);
                 throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: URI pattern mismatch");
