@@ -51,6 +51,8 @@ public interface UserService {
 
     UserDTO updateProfile(UserDTO userDTO);
 
+    UserDTO updateProfile(UserDTO userDTO, MultipartFile signatureImageFile);
+
     ModifyResultDTO initFcm(String token);
 
     List<FcmTokenDTO> getFcmTokens();

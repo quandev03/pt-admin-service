@@ -42,4 +42,6 @@ public class ErrorMessageConstant {
     public static final String DEPARTMENT_NOT_FOUND = "error.message.department.id-not-existed";
 
     public static final String CAN_NOT_DELETE_AUTHORIZED_ACTION = "error.message.can-not-delete-authorized-action";
+
+    public static final String BAD_REQUEST = "error.message.bad-request";
 }

@@ -30,6 +30,8 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.util.unit.DataSize;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.util.UriComponents;
@@ -359,11 +361,54 @@ public class UserServiceImpl implements UserService {
 
         HttpEntity<Object> requestEntity = new HttpEntity<>(checkOrgParentRequest, headers);
         String urlCheck = baseUrl + URL_CHECK_PARENT;
-        CheckOrgParentResponse responseCheck = restTemplate.exchange(urlCheck, HttpMethod.POST, requestEntity, CheckOrgParentResponse.class).getBody();
-        log.info("check parent response: {}", responseCheck);
-        assert responseCheck != null;
-        if(Objects.equals(responseCheck.getResult(), 0)){
-            throw BaseException.badRequest(ErrorKey.BAD_REQUEST).build();
+        CheckOrgParentResponse responseCheck;
+        try {
+            responseCheck = restTemplate.exchange(urlCheck, HttpMethod.POST, requestEntity, CheckOrgParentResponse.class).getBody();
+            log.info("check parent response: {}", responseCheck);
+            assert responseCheck != null;
+            if(Objects.equals(responseCheck.getResult(), 0)){
+                throw BaseException.badRequest(ErrorKey.BAD_REQUEST).build();
+            }
+        } catch (HttpClientErrorException ex) {
+            log.error("Error calling check-org-parent API: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
+            String errorMessage = ex.getResponseBodyAsString();
+            String extractedMessage = null;
+            
+            if (StringUtils.hasText(errorMessage)) {
+                try {
+                    // Try to extract detail field from JSON response
+                    if (errorMessage.contains("\"detail\"")) {
+                        int detailStart = errorMessage.indexOf("\"detail\"");
+                        int colonIndex = errorMessage.indexOf(":", detailStart);
+                        if (colonIndex > 0) {
+                            int valueStart = errorMessage.indexOf("\"", colonIndex) + 1;
+                            if (valueStart > 0) {
+                                int valueEnd = errorMessage.indexOf("\"", valueStart);
+                                if (valueEnd > valueStart) {
+                                    extractedMessage = errorMessage.substring(valueStart, valueEnd);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If extracted message contains template placeholders, remove them
+                    if (extractedMessage != null && extractedMessage.contains("{{")) {
+                        extractedMessage = extractedMessage.replaceAll("\\{\\{[^}]*\\}\\}", "").trim();
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse error message: {}", e.getMessage());
+                }
+            }
+            
+            // Use extracted message if valid, otherwise use default
+            if (StringUtils.hasText(extractedMessage) && !extractedMessage.contains("{{")) {
+                throw new BusinessException(extractedMessage);
+            } else {
+                throw new BusinessException(ErrorMessageConstant.BAD_REQUEST);
+            }
+        } catch (RestClientException ex) {
+            log.error("Rest client error calling check-org-parent API: {}", ex.getMessage(), ex);
+            throw new BusinessException(ErrorMessageConstant.BAD_REQUEST);
         }
 
         userDTO.setType(null);
@@ -435,9 +480,50 @@ public class UserServiceImpl implements UserService {
 
         String urlCreateOrgUser = baseUrl + URL_CREATE_USER_PARTNER;
 
-
         HttpEntity<Object> requestEntityCreateUser = new HttpEntity<>(organizationUserDTO, headers);
-        organizationUserDTO = restTemplate.exchange(urlCreateOrgUser, HttpMethod.POST, requestEntityCreateUser, OrganizationUserDTO.class).getBody();
+        try {
+            organizationUserDTO = restTemplate.exchange(urlCreateOrgUser, HttpMethod.POST, requestEntityCreateUser, OrganizationUserDTO.class).getBody();
+        } catch (HttpClientErrorException ex) {
+            log.error("Error calling create-org-user API: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
+            String errorMessage = ex.getResponseBodyAsString();
+            String extractedMessage = null;
+            
+            if (StringUtils.hasText(errorMessage)) {
+                try {
+                    // Try to extract detail field from JSON response
+                    if (errorMessage.contains("\"detail\"")) {
+                        int detailStart = errorMessage.indexOf("\"detail\"");
+                        int colonIndex = errorMessage.indexOf(":", detailStart);
+                        if (colonIndex > 0) {
+                            int valueStart = errorMessage.indexOf("\"", colonIndex) + 1;
+                            if (valueStart > 0) {
+                                int valueEnd = errorMessage.indexOf("\"", valueStart);
+                                if (valueEnd > valueStart) {
+                                    extractedMessage = errorMessage.substring(valueStart, valueEnd);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If extracted message contains template placeholders, remove them
+                    if (extractedMessage != null && extractedMessage.contains("{{")) {
+                        extractedMessage = extractedMessage.replaceAll("\\{\\{[^}]*\\}\\}", "").trim();
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse error message: {}", e.getMessage());
+                }
+            }
+            
+            // Use extracted message if valid, otherwise use default
+            if (StringUtils.hasText(extractedMessage) && !extractedMessage.contains("{{")) {
+                throw new BusinessException(extractedMessage);
+            } else {
+                throw new BusinessException(ErrorMessageConstant.BAD_REQUEST);
+            }
+        } catch (RestClientException ex) {
+            log.error("Rest client error calling create-org-user API: {}", ex.getMessage(), ex);
+            throw new BusinessException(ErrorMessageConstant.BAD_REQUEST);
+        }
 
         if( Objects.nonNull(organizationUserDTO) && Objects.isNull(organizationUserDTO.getId())){
             throw new EntityNotFoundException(ErrorMessageConstant.USER_NOT_FOUND);
@@ -776,6 +862,20 @@ public class UserServiceImpl implements UserService {
         UserDTO userProfileDTO = this.userMapper.convertEntity2DtoFull(userEntity);
         return this.checkPasswordChangeRequirement(userDTO, userProfileDTO);
 
+    }
+
+    @Override
+    @Transactional
+    public UserDTO updateProfile(UserDTO userDTO, MultipartFile signatureImageFile) {
+        // Update profile information
+        UserDTO updatedProfile = this.updateProfile(userDTO);
+        
+        // Upload signature image if provided
+        if (signatureImageFile != null && !signatureImageFile.isEmpty()) {
+            this.updateSignature(signatureImageFile);
+        }
+        
+        return updatedProfile;
     }
 
     @NotNull

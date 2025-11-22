@@ -68,10 +68,20 @@ public abstract class AuthControllerBase {
     }
 
     @Operation(summary = "api cập nhật thông tin người dùng hiện tại")
-    @PatchMapping("/profile")
+    @PatchMapping(value = "/profile", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<UserDTO> updateUserProfile(@Validated(UserDTO.UpdateProfileCase.class) @RequestBody UserDTO userProfileDTO) {
         log.debug("REST request to update user profile");
         UserDTO updatedUserProfileDTO = this.userService.updateProfile(userProfileDTO);
+        return ResponseEntity.ok(updatedUserProfileDTO);
+    }
+
+    @Operation(summary = "api cập nhật thông tin người dùng hiện tại kèm upload ảnh chữ ký")
+    @PatchMapping(value = "/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserDTO> updateUserProfileWithImage(
+            @Validated(UserDTO.UpdateProfileCase.class) @RequestPart("profile") UserDTO userProfileDTO,
+            @RequestPart(value = "image", required = false) MultipartFile signatureImageFile) {
+        log.debug("REST request to update user profile with image");
+        UserDTO updatedUserProfileDTO = this.userService.updateProfile(userProfileDTO, signatureImageFile);
         return ResponseEntity.ok(updatedUserProfileDTO);
     }
 
