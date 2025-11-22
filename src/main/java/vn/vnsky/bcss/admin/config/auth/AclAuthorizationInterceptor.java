@@ -2,6 +2,7 @@ package vn.vnsky.bcss.admin.config.auth;
 
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
@@ -63,10 +64,34 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
             String apiUriPattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
             String appCode = userDTO.getAttribute("appCode");
             String requestUri = request.getRequestURI();
+            String contextPath = request.getContextPath();
+            String servletPath = request.getServletPath();
+            String pathInfo = request.getPathInfo();
+            
+            // Get URI without context path for matching
+            String uriForMatching;
+            if (servletPath != null && !servletPath.isEmpty()) {
+                uriForMatching = servletPath;
+                if (pathInfo != null) {
+                    uriForMatching += pathInfo;
+                }
+            } else {
+                uriForMatching = requestUri;
+                if (contextPath != null && !contextPath.isEmpty() && requestUri.startsWith(contextPath)) {
+                    uriForMatching = requestUri.substring(contextPath.length());
+                }
+            }
+            
+            // Ensure URI starts with /
+            if (!uriForMatching.startsWith("/")) {
+                uriForMatching = "/" + uriForMatching;
+            }
+            
+            final String finalUriForMatching = uriForMatching;
             
             // Log for debugging
-            log.debug("ACL Check - URI: {}, Pattern: {}, AppCode: {}, Method: {}", 
-                requestUri, apiUriPattern, appCode, request.getMethod());
+            log.debug("ACL Check - Full URI: {}, ContextPath: {}, ServletPath: {}, URI for matching: {}, Pattern: {}, AppCode: {}, Method: {}", 
+                requestUri, contextPath, servletPath, finalUriForMatching, apiUriPattern, appCode, request.getMethod());
             
             if (appCode == null || appCode.isEmpty()) {
                 log.error("ACL Check failed - appCode is null or empty for user: {}, URI: {}", 
@@ -81,9 +106,22 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
                 throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: appCode '" + appCode + "' not found in ACL rules");
             }
             
-            if (!requestMatcher.matches(request)) {
-                log.error("ACL Check failed - Request URI '{}' does not match pattern for appCode: {}", 
-                    requestUri, appCode);
+            // Create a wrapper request for matching that uses servlet path without context path
+            HttpServletRequest matchingRequest = new HttpServletRequestWrapper(request) {
+                @Override
+                public String getServletPath() {
+                    return finalUriForMatching;
+                }
+                
+                @Override
+                public String getPathInfo() {
+                    return null;
+                }
+            };
+            
+            if (!requestMatcher.matches(matchingRequest)) {
+                log.error("ACL Check failed - Request URI '{}' (matching: '{}') does not match pattern for appCode: {}", 
+                    requestUri, finalUriForMatching, appCode);
                 throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: URI pattern mismatch");
             }
             PolicyCheckDTO checkAclRequest = PolicyCheckDTO.builder()
