@@ -63,69 +63,9 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
             authentication.getPrincipal() instanceof UserDTO userDTO) {
             String apiUriPattern = (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
             String appCode = userDTO.getAttribute("appCode");
-            String requestUri = request.getRequestURI();
-            String contextPath = request.getContextPath();
-            String servletPath = request.getServletPath();
-            String pathInfo = request.getPathInfo();
-            
-            // Get URI without context path for matching
-            String uriForMatching;
-            if (servletPath != null && !servletPath.isEmpty()) {
-                uriForMatching = servletPath;
-                if (pathInfo != null) {
-                    uriForMatching += pathInfo;
-                }
-            } else {
-                uriForMatching = requestUri;
-                if (contextPath != null && !contextPath.isEmpty() && requestUri.startsWith(contextPath)) {
-                    uriForMatching = requestUri.substring(contextPath.length());
-                }
-            }
-            
-            // Ensure URI starts with /
-            if (!uriForMatching.startsWith("/")) {
-                uriForMatching = "/" + uriForMatching;
-            }
-            
-            final String finalUriForMatching = uriForMatching;
-            
-            // Log for debugging (use info level for troubleshooting)
-            log.info("ACL Check - Full URI: {}, ContextPath: {}, ServletPath: {}, URI for matching: {}, Pattern: {}, AppCode: {}, Method: {}", 
-                requestUri, contextPath, servletPath, finalUriForMatching, apiUriPattern, appCode, request.getMethod());
-            
-            if (appCode == null || appCode.isEmpty()) {
-                log.error("ACL Check failed - appCode is null or empty for user: {}, URI: {}", 
-                    userDTO.getUsername(), requestUri);
-                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: appCode is missing");
-            }
-            
             RequestMatcher requestMatcher = oauth2ClientAclRule.get(appCode);
-            if (requestMatcher == null) {
-                log.error("ACL Check failed - No RequestMatcher found for appCode: {}, URI: {}, Available appCodes: {}", 
-                    appCode, requestUri, oauth2ClientAclRule.keySet());
-                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: appCode '" + appCode + "' not found in ACL rules");
-            }
-            
-            // Create a wrapper request for matching that uses servlet path without context path
-            HttpServletRequest matchingRequest = new HttpServletRequestWrapper(request) {
-                @Override
-                public String getServletPath() {
-                    return finalUriForMatching;
-                }
-                
-                @Override
-                public String getPathInfo() {
-                    return null;
-                }
-            };
-
-            if(requestUri.equals("/admin-service/error")){
-                return true;
-            }
-            if (!requestMatcher.matches(matchingRequest)) {
-                log.error("ACL Check failed - Request URI '{}' (matching: '{}') does not match pattern for appCode: {}", 
-                    requestUri, finalUriForMatching, appCode);
-                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource: URI pattern mismatch");
+            if (requestMatcher == null || !requestMatcher.matches(request)) {
+                throw new AccessDeniedException("OAuth2 client has not been granted to access this resource");
             }
             PolicyCheckDTO checkAclRequest = PolicyCheckDTO.builder()
                     .appCode(appCode)
