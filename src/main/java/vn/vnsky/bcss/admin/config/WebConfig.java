@@ -144,7 +144,11 @@ public class WebConfig implements WebMvcConfigurer, ServletContextInitializer, W
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(this.aclAuthorizationInterceptor)
-                .excludePathPatterns("/public/api/users/partner/**");
+                .excludePathPatterns(
+                    "/public/api/users/partner/**",
+                    "/error",
+                    "/admin-service/error"
+                );
     }
 
     /**

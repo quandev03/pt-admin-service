@@ -89,8 +89,8 @@ public class AclAuthorizationInterceptor implements HandlerInterceptor {
             
             final String finalUriForMatching = uriForMatching;
             
-            // Log for debugging
-            log.debug("ACL Check - Full URI: {}, ContextPath: {}, ServletPath: {}, URI for matching: {}, Pattern: {}, AppCode: {}, Method: {}", 
+            // Log for debugging (use info level for troubleshooting)
+            log.info("ACL Check - Full URI: {}, ContextPath: {}, ServletPath: {}, URI for matching: {}, Pattern: {}, AppCode: {}, Method: {}", 
                 requestUri, contextPath, servletPath, finalUriForMatching, apiUriPattern, appCode, request.getMethod());
             
             if (appCode == null || appCode.isEmpty()) {
