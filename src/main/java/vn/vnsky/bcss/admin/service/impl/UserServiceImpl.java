@@ -370,41 +370,48 @@ public class UserServiceImpl implements UserService {
                 throw BaseException.badRequest(ErrorKey.BAD_REQUEST).build();
             }
         } catch (HttpClientErrorException ex) {
-            log.error("Error calling check-org-parent API: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
-            String errorMessage = ex.getResponseBodyAsString();
-            String extractedMessage = null;
-            
-            if (StringUtils.hasText(errorMessage)) {
-                try {
-                    // Try to extract detail field from JSON response
-                    if (errorMessage.contains("\"detail\"")) {
-                        int detailStart = errorMessage.indexOf("\"detail\"");
-                        int colonIndex = errorMessage.indexOf(":", detailStart);
-                        if (colonIndex > 0) {
-                            int valueStart = errorMessage.indexOf("\"", colonIndex) + 1;
-                            if (valueStart > 0) {
-                                int valueEnd = errorMessage.indexOf("\"", valueStart);
-                                if (valueEnd > valueStart) {
-                                    extractedMessage = errorMessage.substring(valueStart, valueEnd);
+            // Handle 404 separately - API endpoint not found, skip validation
+            if (ex.getStatusCode().value() == 404) {
+                log.warn("check-org-parent API not found (404), skipping validation. URL: {}, Response: {}", 
+                    urlCheck, ex.getResponseBodyAsString());
+                // Continue without validation if API doesn't exist
+            } else {
+                log.error("Error calling check-org-parent API: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
+                String errorMessage = ex.getResponseBodyAsString();
+                String extractedMessage = null;
+                
+                if (StringUtils.hasText(errorMessage)) {
+                    try {
+                        // Try to extract detail field from JSON response
+                        if (errorMessage.contains("\"detail\"")) {
+                            int detailStart = errorMessage.indexOf("\"detail\"");
+                            int colonIndex = errorMessage.indexOf(":", detailStart);
+                            if (colonIndex > 0) {
+                                int valueStart = errorMessage.indexOf("\"", colonIndex) + 1;
+                                if (valueStart > 0) {
+                                    int valueEnd = errorMessage.indexOf("\"", valueStart);
+                                    if (valueEnd > valueStart) {
+                                        extractedMessage = errorMessage.substring(valueStart, valueEnd);
+                                    }
                                 }
                             }
                         }
+                        
+                        // If extracted message contains template placeholders, remove them
+                        if (extractedMessage != null && extractedMessage.contains("{{")) {
+                            extractedMessage = extractedMessage.replaceAll("\\{\\{[^}]*\\}\\}", "").trim();
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to parse error message: {}", e.getMessage());
                     }
-                    
-                    // If extracted message contains template placeholders, remove them
-                    if (extractedMessage != null && extractedMessage.contains("{{")) {
-                        extractedMessage = extractedMessage.replaceAll("\\{\\{[^}]*\\}\\}", "").trim();
-                    }
-                } catch (Exception e) {
-                    log.warn("Failed to parse error message: {}", e.getMessage());
                 }
-            }
-            
-            // Use extracted message if valid, otherwise use default
-            if (StringUtils.hasText(extractedMessage) && !extractedMessage.contains("{{")) {
-                throw new BusinessException(extractedMessage);
-            } else {
-                throw new BusinessException(ErrorMessageConstant.BAD_REQUEST);
+                
+                // Use extracted message if valid, otherwise use default
+                if (StringUtils.hasText(extractedMessage) && !extractedMessage.contains("{{")) {
+                    throw new BusinessException(extractedMessage);
+                } else {
+                    throw new BusinessException(ErrorMessageConstant.BAD_REQUEST);
+                }
             }
         } catch (RestClientException ex) {
             log.error("Rest client error calling check-org-parent API: {}", ex.getMessage(), ex);
