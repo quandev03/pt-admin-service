@@ -365,9 +365,11 @@ public class UserServiceImpl implements UserService {
         try {
             responseCheck = restTemplate.exchange(urlCheck, HttpMethod.POST, requestEntity, CheckOrgParentResponse.class).getBody();
             log.info("check parent response: {}", responseCheck);
-            assert responseCheck != null;
-            if(Objects.equals(responseCheck.getResult(), 0)){
-                throw BaseException.badRequest(ErrorKey.BAD_REQUEST).build();
+            if (responseCheck == null) {
+                log.warn("check-org-parent API returned null response, skipping validation");
+                // Continue without validation
+            } else if(Objects.equals(responseCheck.getResult(), 0)){
+                throw new BusinessException(ErrorMessageConstant.BAD_REQUEST);
             }
         } catch (HttpClientErrorException ex) {
             // Handle 404 separately - API endpoint not found, skip validation

@@ -87,4 +87,15 @@ public class UserController extends UserControllerBase {
         UserDTO createdUserDTO = this.userService.createPartner(orgId ,userDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUserDTO);
     }
+
+    @Operation(summary = "api cập nhật người dùng của đối tác")
+    @PutMapping("/partner/{id}")
+    public ResponseEntity<UserDTO> update(
+            @PathVariable("id") String id,
+            @RequestBody @Validated(UserDTO.UpdateCase.class) UserDTO dto) {
+        log.debug("REST request to update partner user {} (Partner Site)", id);
+        String clientIdentity = SecurityUtil.getCurrentClientId();
+        UserDTO updatedUserDTO = this.userService.update(clientIdentity, id, dto);
+        return ResponseEntity.status(HttpStatus.OK).body(updatedUserDTO);
+    }
 }
