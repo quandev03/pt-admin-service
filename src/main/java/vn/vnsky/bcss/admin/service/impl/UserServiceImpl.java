@@ -669,7 +669,7 @@ public class UserServiceImpl implements UserService {
             }
             
             // Get organization user first to get orgId
-            String urlGetOrgUser = baseUrl + URL_CREATE_USER_PARTNER + "/user/" + userId;
+            String urlGetOrgUser = baseUrl + URL_CREATE_USER_PARTNER  + userId;
             HttpEntity<Object> requestEntityGet = new HttpEntity<>(headers);
             OrganizationUserDTO existingOrgUser = null;
             try {
