@@ -71,4 +71,16 @@ public class RequestUtil {
         return languageTag;
     }
 
+    public static String getAuthorizationToken() {
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        if (requestAttributes instanceof ServletRequestAttributes servletRequestAttributes) {
+            HttpServletRequest request = servletRequestAttributes.getRequest();
+            String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+            if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
+                return authorization;
+            }
+        }
+        return null;
+    }
+
 }

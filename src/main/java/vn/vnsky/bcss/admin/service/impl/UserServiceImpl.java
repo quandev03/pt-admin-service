@@ -662,6 +662,12 @@ public class UserServiceImpl implements UserService {
             headers.add("x-api-key", API_KEY);
             headers.add(HttpHeaders.ACCEPT_LANGUAGE, "en");
             
+            // Get current token from request header and add to headers
+            String authorizationToken = RequestUtil.getAuthorizationToken();
+            if (StringUtils.hasText(authorizationToken)) {
+                headers.add(HttpHeaders.AUTHORIZATION, authorizationToken);
+            }
+            
             // Get organization user first to get orgId
             String urlGetOrgUser = baseUrl + URL_CREATE_USER_PARTNER + "/user/" + userId;
             HttpEntity<Object> requestEntityGet = new HttpEntity<>(headers);
