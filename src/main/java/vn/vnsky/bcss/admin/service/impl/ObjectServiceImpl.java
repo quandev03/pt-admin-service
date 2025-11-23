@@ -568,6 +568,10 @@ public class ObjectServiceImpl implements ObjectService {
     @Override
     @Nullable
     public UserDTO refreshUserInfoCache(String userId) {
+        if (!StringUtils.hasText(userId)) {
+            log.warn("refreshUserInfoCache called with null or empty userId");
+            return null;
+        }
         Optional<UserEntity> optionalUserEntity = this.userRepository.findById(userId);
         if (optionalUserEntity.isPresent()) {
             UserDTO userDTO = this.userMapper.toDto(optionalUserEntity.get());
@@ -581,6 +585,10 @@ public class ObjectServiceImpl implements ObjectService {
 
     @Nullable
     private UserDTO getUserInfo(String userId) {
+        if (!StringUtils.hasText(userId)) {
+            log.warn("getUserInfo called with null or empty userId");
+            return null;
+        }
         UserDTO user;
         if (this.userInfoCacheOn) {
             user = userInfoCache.get(userId, UserDTO.class);
