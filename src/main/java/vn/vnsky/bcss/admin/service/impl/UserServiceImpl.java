@@ -645,10 +645,7 @@ public class UserServiceImpl implements UserService {
         this.objectService.refreshUserInfoCache(id);
         userDTO = this.userMapper.convertEntity2DtoFull(oldUserEntity);
         
-        // Update organization user if this is a partner user
-        if (!AuthConstants.VNSKY_CLIENT_ID.equals(clientIdentity)) {
-            this.updateOrganizationUser(clientIdentity, id, userDTO);
-        }
+        // Update organization user if this is a partner use
         
         return userDTO;
     }
