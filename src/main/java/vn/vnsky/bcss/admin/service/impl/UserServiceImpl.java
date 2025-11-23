@@ -122,6 +122,7 @@ public class UserServiceImpl implements UserService {
     private static final String API_KEY="api-key-hi-viet-nam";
     private static final String URL_CHECK_PARENT="/private/api/v1/organization-unit/check-org-parent";
     private static final String URL_CREATE_USER_PARTNER="/private/api/v1/organization-user";
+    private static final String URL_UPDATE_ORGANIZATION_USER="/api/v1/private/organization-user";
 
     @Value("${domain.internal.domain-sale}")
     private String baseUrl;
@@ -684,6 +685,11 @@ public class UserServiceImpl implements UserService {
                 return;
             }
             
+            if (!StringUtils.hasText(existingOrgUser.getId())) {
+                log.warn("Organization user id is empty for userId: {}, skipping update", userId);
+                return;
+            }
+            
             // Update organization user
             OrganizationUserDTO organizationUserDTO = OrganizationUserDTO.builder()
                     .id(existingOrgUser.getId())
@@ -697,12 +703,13 @@ public class UserServiceImpl implements UserService {
                     .status(userDTO.getStatus() != null && UserStatus.ACTIVE.getValue().equals(userDTO.getStatus()) ? 1 : 0)
                     .build();
             
-            String urlUpdateOrgUser = baseUrl + URL_CREATE_USER_PARTNER;
+            // Use PUT /api/v1/private/organization-user/{id}
+            String urlUpdateOrgUser = baseUrl + URL_UPDATE_ORGANIZATION_USER + "/" + existingOrgUser.getId();
             HttpEntity<Object> requestEntityUpdate = new HttpEntity<>(organizationUserDTO, headers);
             
             try {
                 restTemplate.exchange(urlUpdateOrgUser, HttpMethod.PUT, requestEntityUpdate, OrganizationUserDTO.class);
-                log.info("Successfully updated organization user for userId: {}", userId);
+                log.info("Successfully updated organization user for userId: {}, orgUserId: {}", userId, existingOrgUser.getId());
             } catch (HttpClientErrorException ex) {
                 log.error("Error calling update-org-user API: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
                 // Don't throw exception, just log the error
