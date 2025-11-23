@@ -643,7 +643,77 @@ public class UserServiceImpl implements UserService {
         this.userRepository.saveAndFlush(oldUserEntity);
         this.objectService.refreshUserInfoCache(id);
         userDTO = this.userMapper.convertEntity2DtoFull(oldUserEntity);
+        
+        // Update organization user if this is a partner user
+        if (!AuthConstants.VNSKY_CLIENT_ID.equals(clientIdentity)) {
+            this.updateOrganizationUser(clientIdentity, id, userDTO);
+        }
+        
         return userDTO;
+    }
+    
+    private void updateOrganizationUser(String clientId, String userId, UserDTO userDTO) {
+        try {
+            log.info("Update organization user for userId: {}", userId);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.add("x-api-key", API_KEY);
+            headers.add(HttpHeaders.ACCEPT_LANGUAGE, "en");
+            
+            // Get organization user first to get orgId
+            String urlGetOrgUser = baseUrl + URL_CREATE_USER_PARTNER + "/user/" + userId;
+            HttpEntity<Object> requestEntityGet = new HttpEntity<>(headers);
+            OrganizationUserDTO existingOrgUser = null;
+            try {
+                existingOrgUser = restTemplate.exchange(urlGetOrgUser, HttpMethod.GET, requestEntityGet, OrganizationUserDTO.class).getBody();
+            } catch (HttpClientErrorException ex) {
+                if (ex.getStatusCode().value() == 404) {
+                    log.warn("Organization user not found for userId: {}, skipping update", userId);
+                    return;
+                }
+                log.warn("Failed to get organization user for userId: {}, status: {}, error: {}", userId, ex.getStatusCode(), ex.getMessage());
+                return;
+            } catch (Exception ex) {
+                log.warn("Failed to get organization user for userId: {}, error: {}", userId, ex.getMessage());
+                return;
+            }
+            
+            if (existingOrgUser == null || !StringUtils.hasText(existingOrgUser.getOrgId())) {
+                log.warn("Organization user not found or orgId is empty for userId: {}, skipping update", userId);
+                return;
+            }
+            
+            // Update organization user
+            OrganizationUserDTO organizationUserDTO = OrganizationUserDTO.builder()
+                    .id(existingOrgUser.getId())
+                    .userFullname(userDTO.getFullname())
+                    .userName(userDTO.getUsername())
+                    .isCurrent(1)
+                    .clientId(clientId)
+                    .email(userDTO.getEmail())
+                    .orgId(existingOrgUser.getOrgId())
+                    .userId(userId)
+                    .status(userDTO.getStatus() != null && UserStatus.ACTIVE.getValue().equals(userDTO.getStatus()) ? 1 : 0)
+                    .build();
+            
+            String urlUpdateOrgUser = baseUrl + URL_CREATE_USER_PARTNER;
+            HttpEntity<Object> requestEntityUpdate = new HttpEntity<>(organizationUserDTO, headers);
+            
+            try {
+                restTemplate.exchange(urlUpdateOrgUser, HttpMethod.PUT, requestEntityUpdate, OrganizationUserDTO.class);
+                log.info("Successfully updated organization user for userId: {}", userId);
+            } catch (HttpClientErrorException ex) {
+                log.error("Error calling update-org-user API: status={}, body={}", ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
+                // Don't throw exception, just log the error
+            } catch (RestClientException ex) {
+                log.error("Rest client error calling update-org-user API: {}", ex.getMessage(), ex);
+                // Don't throw exception, just log the error
+            }
+        } catch (Exception ex) {
+            log.error("Unexpected error updating organization user for userId: {}", userId, ex);
+            // Don't throw exception, just log the error to avoid breaking the main update flow
+        }
     }
 
     @Override
