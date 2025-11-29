@@ -48,7 +48,7 @@ spring:
     test-connection: true
     protocol: ${MAIL_PROTOCOL:}
     properties:
-      mail-sender-display-name: VNSKY-Admin
+      mail-sender-display-name: QLPT - Hệ thống quản lý phòng trọ
       mail:
         smtp:
           auth: true
