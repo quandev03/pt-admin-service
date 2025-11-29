@@ -151,6 +151,7 @@ application:
 #    allow-private-network: true
 #    expose-headers: Authorization,Link,X-Total-Count,Etag
   google-cloud-api-key: ${GOOGLE_CLOUD_API_KEY:}
+  group-user-api-key: ${GROUP_USER_API_KEY:}
 management:
   health:
     mail:

@@ -39,6 +39,8 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
@@ -249,11 +251,14 @@ public class SecurityConfig {
     @Bean
     @Order(6)
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity httpSecurity, JwtConfigHolder jwtConfigHolder,
-                                                          ObjectMapper objectMapper, MessageSource messageSource)
+                                                          ObjectMapper objectMapper, MessageSource messageSource,
+                                                          ApplicationProperties applicationProperties,
+                                                          ApiKeyAuthenticationFilter groupUserApiKeyAuthenticationFilter)
             throws Exception {
         AuthenticationEntryPoint authenticationEntryPoint = new CustomAuthenticationEntryPoint(objectMapper, messageSource);
         AccessDeniedHandler accessDeniedHandler = new CustomAccessDeniedHandler(objectMapper, messageSource);
         RequestMatcher requestMatcher = new MediaTypeRequestMatcher(MediaType.ALL);
+        String internalPrefix = applicationProperties.getVnskyWebOAuth2ClientInfo().getApiPrefix();
 
         httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
@@ -264,6 +269,7 @@ public class SecurityConfig {
                         .requestMatchers("/.well-known/**").permitAll()
                         .requestMatchers("/api/users/forgot-password/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(internalPrefix + "/api/group-users/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // Form login handles the redirect to the login page from the
@@ -280,6 +286,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(authenticationEntryPoint)
                         .accessDeniedHandler(accessDeniedHandler)
                 )
+                .addFilterBefore(groupUserApiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         ;
         return httpSecurity.build();
     }
@@ -384,6 +391,13 @@ public class SecurityConfig {
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
+    }
+
+    @Bean
+    public ApiKeyAuthenticationFilter groupUserApiKeyAuthenticationFilter(ApplicationProperties applicationProperties) {
+        String internalPrefix = applicationProperties.getVnskyWebOAuth2ClientInfo().getApiPrefix();
+        RequestMatcher requestMatcher = new AntPathRequestMatcher(internalPrefix + "/api/group-users/**");
+        return new ApiKeyAuthenticationFilter(requestMatcher, applicationProperties.getGroupUserApiKey());
     }
 
     private AuthorizationServerSettings createSettingsForPrefix(String prefix) {

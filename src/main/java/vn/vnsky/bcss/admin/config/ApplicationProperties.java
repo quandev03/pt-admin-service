@@ -36,6 +36,8 @@ public class ApplicationProperties {
 
     private String googleCloudApiKey = "";
 
+    private String groupUserApiKey = "";
+
     private Map<String, OAuth2WebClientInfo> webClientInforMap = new HashMap<>();
 
     @PostConstruct

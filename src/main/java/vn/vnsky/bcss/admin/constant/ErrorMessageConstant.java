@@ -44,4 +44,6 @@ public class ErrorMessageConstant {
     public static final String CAN_NOT_DELETE_AUTHORIZED_ACTION = "error.message.can-not-delete-authorized-action";
 
     public static final String BAD_REQUEST = "error.message.bad-request";
+
+    public static final String GROUP_USER_ALREADY_EXISTS = "error.message.group-user.existed";
 }
